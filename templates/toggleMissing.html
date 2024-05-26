@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+    <script src="{{ url_for('static',filename='index.js') }}"> </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body>
+    <header class="header">{{ coyName }} TOGGLE MISSING KEYS</header>
+    {% for i in range(1,55) %}
+        {% if arr[i-1][1] == 'True'  %}
+            <button type="submit" class="default_true" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='toggleMissing(this)' name="updateButton" value="{{ i }}">{{ i }} (T{{arr[i-1][2]}})</button>
+        {% endif %}
+        {% if arr[i-1][1] == 'False'  %}
+            <button type="submit" class="default_false" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='toggleMissing(this)' name="updateButton" value="{{ i }}">{{ i }} (T{{arr[i-1][2]}})</button>
+        {% endif %}
+        {% if arr[i-1][1] == 'Missing'  %}
+            <button type="submit" class="default_missing" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='toggleMissing(this)' value="{{ i }}">{{ i }} (T{{arr[i-1][2]}})</button>
+        {% endif %}
+        {% if i % 6 == 0 %}
+            <br>
+            <br>
+        {% endif %}
+    {% endfor %}
+    <form action="/toggleMissing/alpha1" style="display: inline;">
+        <input type="submit" class="default_coy" value="ALPHA1" />
+    </form>
+    <form action="/toggleMissing/alpha2" style="display: inline;">
+        <input type="submit" class="default_coy" value="ALPHA2" />
+    </form>
+    <form action="/toggleMissing/alpha3" style="display: inline;">
+        <input type="submit" class="default_coy" value="ALPHA3" />
+    </form>
+    <form action="/toggleMissing/alpha4" style="display: inline;">
+        <input type="submit" class="default_coy" value="ALPHA4" />
+    </form>
+    <br>
+    <br>
+    <form action="/toggleMissing/bravo" style="display: inline;">
+        <input type="submit" class="default_coy" value="BRAVO" />
+    </form>
+    <form action="/toggleMissing/charlie" style="display: inline;">
+        <input type="submit" class="default_coy" value="CHARLIE" />
+    </form>
+    <form action="/toggleMissing/delta" style="display: inline;">
+        <input type="submit" class="default_coy" value="DELTA" />
+    </form>
+    <form action="/toggleMissing/echo" style="display: inline;">
+        <input type="submit" class="default_coy" value="ECHO" />
+    </form>
+    <br>
+    <br>
+    <form action="/toggleMissing/foxtrot" style="display: inline;">
+        <input type="submit" class="default_coy" value="FOXTROT" />
+    </form>
+    <button type="submit" class="default_gen" onclick='generateReport()'>GENERATE FULL REPORT</button>
+
+</body>
+</html>
