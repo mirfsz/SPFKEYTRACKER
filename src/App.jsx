@@ -4,6 +4,9 @@ import CompanyNav from './components/CompanyNav';
 import ReportButton from './components/ReportButton';
 import Toast from './components/Toast';
 
+// Get API URL from environment variables or use default for local development
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 function App() {
   const [currentCompany, setCurrentCompany] = useState('ALPHA1');
   const [keys, setKeys] = useState({});
@@ -16,7 +19,7 @@ function App() {
     const fetchKeys = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/keys/${currentCompany.toLowerCase()}`);
+        const response = await fetch(`${API_URL}/api/keys/${currentCompany.toLowerCase()}`);
         if (!response.ok) {
           throw new Error('Failed to fetch keys');
         }
@@ -37,7 +40,7 @@ function App() {
   // Update key status
   const updateKeyStatus = async (boxId, status) => {
     try {
-      const response = await fetch(`/api/keys/${currentCompany.toLowerCase()}/${boxId}`, {
+      const response = await fetch(`${API_URL}/api/keys/${currentCompany.toLowerCase()}/${boxId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +80,7 @@ function App() {
         type: 'info',
       });
       
-      const response = await fetch('/api/report');
+      const response = await fetch(`${API_URL}/api/report`);
       if (!response.ok) {
         throw new Error('Failed to generate report');
       }
