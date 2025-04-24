@@ -9,11 +9,10 @@ services:
         value: production
       - key: PYTHONUNBUFFERED
         value: "true"
-    healthCheckPath: /
-    envVars:
       - key: PORT
         value: 10000
+    healthCheckPath: /
     disk:
       name: data
       mountPath: /data
-      sizeGB: 1 
+      sizeGB: 1
