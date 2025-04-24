@@ -114,75 +114,6 @@ function updateStatus(coy, boxId, status) {
 }
 
 /**
- * Edit the true key value
- */
-function editTrueValue(elem) {
-	if (elem.disabled) return; // Don't process clicks on disabled buttons
-	
-	const coy = elem.getAttribute("coy");
-	const boxId = elem.value;
-	const currentTrueKey = elem.querySelector('.true-key-info')?.textContent.replace(/[()T]/g, '') || '';
-	
-	const newTrueValue = prompt(`Edit true key for ${coy} KEYHOLE ${boxId}`, currentTrueKey);
-	
-	if (newTrueValue === null) return; // User cancelled
-	
-	if (newTrueValue.trim() !== '') {
-		$.ajax({
-			url: '/editTrueValue',
-			data: {coy: coy, boxId: boxId, newTrueValue: newTrueValue},
-			type: 'POST',
-			success: function(response) {
-				// Update the display immediately without reload
-				const infoSpan = elem.querySelector('.true-key-info');
-				if (infoSpan) {
-					infoSpan.textContent = `(T${newTrueValue})`;
-				}
-				showToast('True key updated successfully');
-			},
-			error: function(error) {
-				console.error('Failed to update true key value', error);
-				showToast('Error updating true key', 'error');
-			}
-		});
-	}
-}
-
-/**
- * Toggle through Missing, True, False states
- */
-function toggleMissing(elem) {
-	// Don't allow permanently missing keys to be toggled
-	const companyName = elem.getAttribute("coy");
-	const keyId = parseInt(elem.value);
-	
-	if (MISSING_KEYS[companyName] && MISSING_KEYS[companyName].includes(keyId)) {
-		showToast(`Key ${keyId} is permanently missing and cannot be modified`, 'warning');
-		return;
-	}
-	
-	if (elem.classList.contains("default_missing")) {
-		elem.classList.remove("default_missing");
-		elem.classList.add("default_true");
-		elem.disabled = false;
-		elem.style.cursor = 'pointer';
-		elem.style.opacity = '1';
-		updateStatus(elem.getAttribute("coy"), elem.value, "True");
-	} else if (elem.classList.contains("default_true")) {
-		elem.classList.remove("default_true");
-		elem.classList.add("default_false");
-		updateStatus(elem.getAttribute("coy"), elem.value, "False");
-	} else if (elem.classList.contains("default_false")) {
-		elem.classList.remove("default_false");
-		elem.classList.add("default_missing");
-		elem.disabled = true;
-		elem.style.cursor = 'not-allowed';
-		elem.style.opacity = '0.7';
-		updateStatus(elem.getAttribute("coy"), elem.value, "Missing");
-	}
-}
-
-/**
  * Generate and copy report
  */
 function generateReport() {
@@ -378,11 +309,4 @@ function showToast(message, type = 'success') {
 	setTimeout(() => {
 		toast.classList.remove('show');
 	}, 3000);
-}
-
-// $(function () {
-//   $('button').click(function () {
-//
-//     });
-//   });
-// });
+} 

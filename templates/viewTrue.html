@@ -2,59 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
-    <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
-    <script src="{{ url_for('static',filename='index.js') }}"> </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeyTracker - Edit True Key - {{ coyName }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <script src="https://code.jquery.com/jquery-3.6.3.min.js" integrity="sha256-pvPw+upLPUjgMXY0G+8O0xUf+/Im1MZjXxxgOcBQBXU=" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static',filename='index.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
 <body>
-    <header class="header">{{ coyName }} TRUE KEY VIEW</header>
+    <header class="header">{{ coyName }} - EDIT TRUE KEY</header>
+    
+    <div class="key-grid">
     {% for i in range(1,55) %}
-        {% if arr[i-1][1] == 'True'  %}
-            <button type="submit" class="default_true" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='editTrueValue(this)' name="updateButton" value="{{ i }}">{{ i }} (T{{arr[i-1][2]}})</button>
+        {% set status = arr[i-1].status if arr[i-1] is mapping else arr[i-1][1] %}
+        {% set boxId = arr[i-1].boxId if arr[i-1] is mapping else arr[i-1][0] %}
+        {% set bunkNo = arr[i-1].bunkNo if arr[i-1] is mapping else arr[i-1][2] %}
+        
+        {% if status == 'True' %}
+            <button type="button" class="key-button default_true" id="{{ coyName }}-{{ boxId }}" coy="{{ coyName }}" onclick='editTrueValue(this)' value="{{ boxId }}">
+                {{ boxId }} <span class="true-key-info">(T{{bunkNo}})</span>
+            </button>
         {% endif %}
-        {% if arr[i-1][1] == 'False'  %}
-            <button type="submit" class="default_false" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='editTrueValue(this)' name="updateButton" value="{{ i }}">{{ i }} (T{{arr[i-1][2]}})</button>
+        {% if status == 'False' %}
+            <button type="button" class="key-button default_false" id="{{ coyName }}-{{ boxId }}" coy="{{ coyName }}" onclick='editTrueValue(this)' value="{{ boxId }}">
+                {{ boxId }} <span class="true-key-info">(T{{bunkNo}})</span>
+            </button>
         {% endif %}
-        {% if arr[i-1][1] == 'Missing'  %}
-            <button type="submit" class="default_missing" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='editTrueValue(this)' value="{{ i }}">{{ i }} (T{{arr[i-1][2]}})</button>
-        {% endif %}
-        {% if i % 6 == 0 %}
-            <br>
-            <br>
+        {% if status == 'Missing' %}
+            <button type="button" class="key-button default_missing" id="{{ coyName }}-{{ boxId }}" coy="{{ coyName }}" onclick='editTrueValue(this)' value="{{ boxId }}" {% if boxId in [1, 3, 7, 12, 15] and coyName == 'ALPHA1' or boxId in [2, 8, 11] and coyName == 'ALPHA2' or boxId in [4, 9, 14, 22] and coyName == 'ALPHA3' or boxId in [6, 13, 19] and coyName == 'ALPHA4' or boxId in [5, 17, 23, 31] and coyName == 'BRAVO' or boxId in [16, 25, 33] and coyName == 'CHARLIE' or boxId in [21, 27, 35] and coyName == 'DELTA' or boxId in [29, 37, 42] and coyName == 'ECHO' or boxId in [32, 39, 44, 48] and coyName == 'FOXTROT' %}disabled{% endif %}>
+                {{ boxId }} <span class="true-key-info">(T{{bunkNo}})</span>
+            </button>
         {% endif %}
     {% endfor %}
-    <form action="/viewTrue/alpha1" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA1" />
-    </form>
-    <form action="/viewTrue/alpha2" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA2" />
-    </form>
-    <form action="/viewTrue/alpha3" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA3" />
-    </form>
-    <form action="/viewTrue/alpha4" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA4" />
-    </form>
-    <br>
-    <br>
-    <form action="/viewTrue/bravo" style="display: inline;">
-        <input type="submit" class="default_coy" value="BRAVO" />
-    </form>
-    <form action="/viewTrue/charlie" style="display: inline;">
-        <input type="submit" class="default_coy" value="CHARLIE" />
-    </form>
-    <form action="/viewTrue/delta" style="display: inline;">
-        <input type="submit" class="default_coy" value="DELTA" />
-    </form>
-    <form action="/viewTrue/echo" style="display: inline;">
-        <input type="submit" class="default_coy" value="ECHO" />
-    </form>
-    <br>
-    <br>
-    <form action="/viewTrue/foxtrot" style="display: inline;">
-        <input type="submit" class="default_coy" value="FOXTROT" />
-    </form>
-    <button type="submit" class="default_gen" onclick='generateReport()'>GENERATE FULL REPORT</button>
-
+    </div>
+    
+    <div class="nav-container">
+        <div class="nav-group">
+            <a href="/viewTrue/alpha1" class="default_coy">ALPHA1</a>
+            <a href="/viewTrue/alpha2" class="default_coy">ALPHA2</a>
+            <a href="/viewTrue/alpha3" class="default_coy">ALPHA3</a>
+            <a href="/viewTrue/alpha4" class="default_coy">ALPHA4</a>
+        </div>
+        <div class="nav-group">
+            <a href="/viewTrue/bravo" class="default_coy">BRAVO</a>
+            <a href="/viewTrue/charlie" class="default_coy">CHARLIE</a>
+            <a href="/viewTrue/delta" class="default_coy">DELTA</a>
+            <a href="/viewTrue/echo" class="default_coy">ECHO</a>
+            <a href="/viewTrue/foxtrot" class="default_coy">FOXTROT</a>
+        </div>
+        <div class="nav-group">
+            <a href="/{{ coyName.lower() }}" class="default_coy">BACK TO KEYS</a>
+            <a href="/toggleMissing/{{ coyName.lower() }}" class="default_coy">TOGGLE MISSING</a>
+        </div>
+    </div>
+    
+    <button type="button" class="default_gen" onclick='generateReport()'>COPY REPORT</button>
+    
+    <div id="toast" class="toast">Report copied to clipboard!</div>
+    
+    <footer class="footer-credit">
+        <p>Made by 197 OBIC Irfan Mirzan</p>
+        <p>Kindly PayNow to <span class="paynow">84810703</span></p>
+    </footer>
 </body>
 </html>

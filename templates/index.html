@@ -2,59 +2,295 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
-    <script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
-    <script src="{{ url_for('static',filename='index.js') }}"> </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeyTracker - {{ coyName }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        :root {
+            --success-color: #4ade80;
+            --danger-color: #ef4444;
+            --missing-color: #6b7280;
+        }
+        
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #000;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background-color: #000;
+            border-bottom: 1px solid #1f2937;
+        }
+        
+        .header-title {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #4ade80;
+            letter-spacing: 1.5px;
+        }
+        
+        .header-status {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator::before {
+            content: "";
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.available::before {
+            background-color: var(--success-color);
+        }
+        
+        .status-indicator.drawn::before {
+            background-color: var(--danger-color);
+        }
+        
+        .status-indicator.missing::before {
+            background-color: var(--missing-color);
+        }
+        
+        .key-grid {
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            gap: 8px;
+            padding: 16px;
+            background-color: #000;
+        }
+        
+        @media (max-width: 1200px) {
+            .key-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .key-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .key-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.8rem;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        
+        .default_true {
+            background-color: #064e3b;
+            color: white;
+            border: 1px solid #065f46;
+        }
+        
+        .default_true:hover:not(:disabled) {
+            background-color: #065f46;
+        }
+        
+        .default_false {
+            background-color: #7f1d1d;
+            color: white;
+            border: 1px solid #991b1b;
+        }
+        
+        .default_false:hover:not(:disabled) {
+            background-color: #991b1b;
+        }
+        
+        .default_missing {
+            background-color: #4b5563;
+            color: #d1d5db;
+            border: 1px solid #374151;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .dashboard-controls {
+            padding: 16px;
+            border-top: 1px solid #1f2937;
+            background-color: #000;
+        }
+        
+        .nav-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+        
+        .nav-link {
+            color: white;
+            background-color: #1e3a8a;
+            border: 1px solid #1e40af;
+            padding: 8px 20px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: 0.5px;
+        }
+        
+        .nav-link:hover {
+            background-color: #1e40af;
+            border-color: #1d4ed8;
+        }
+        
+        .default_gen {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 12px auto;
+            padding: 12px;
+            background-color: #064e3b;
+            color: white;
+            border: 1px solid #065f46;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            letter-spacing: 0.5px;
+        }
+        
+        .default_gen:hover {
+            background-color: #065f46;
+            border-color: #047857;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background-color: #064e3b;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            transform: translateY(-100px);
+            opacity: 0;
+            transition: all 0.5s ease;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .footer-credit {
+            text-align: center;
+            padding: 20px 0;
+            color: #6b7280;
+            font-size: 0.9rem;
+            background-color: #000;
+        }
+        
+        .footer-credit p {
+            margin: 5px 0;
+        }
+        
+        .paynow {
+            color: #4ade80;
+            font-weight: bold;
+        }
+    </style>
+</head>
 <body>
-    <header class="header">{{ coyName }} COY KEYS</header>
-    {% for i in range(1,55) %}
-        {% if arr[i-1][1] == 'True'  %}
-            <button type="submit" class="default_true" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='changeClass(this)' name="updateButton" value="{{ i }}">{{ i }}</button>
-        {% endif %}
-        {% if arr[i-1][1] == 'False'  %}
-            <button type="submit" class="default_false" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" onclick='changeClass(this)' name="updateButton" value="{{ i }}">{{ i }}</button>
-        {% endif %}
-        {% if arr[i-1][1] == 'Missing'  %}
-            <button type="submit" class="default_missing" role="button" id="{{ 'BRAVO-' ~ i }}" coy="{{ coyName }}" value="{{ i }}">{{ i }}</button>
-        {% endif %}
-        {% if i % 6 == 0 %}
-            <br>
-            <br>
-        {% endif %}
-    {% endfor %}
-    <form action="/alpha1" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA1" />
-    </form>
-    <form action="/alpha2" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA2" />
-    </form>
-    <form action="/alpha3" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA3" />
-    </form>
-    <form action="/alpha4" style="display: inline;">
-        <input type="submit" class="default_coy" value="ALPHA4" />
-    </form>
-    <br>
-    <br>
-    <form action="/bravo" style="display: inline;">
-        <input type="submit" class="default_coy" value="BRAVO" />
-    </form>
-    <form action="/charlie" style="display: inline;">
-        <input type="submit" class="default_coy" value="CHARLIE" />
-    </form>
-    <form action="/delta" style="display: inline;">
-        <input type="submit" class="default_coy" value="DELTA" />
-    </form>
-    <form action="/echo" style="display: inline;">
-        <input type="submit" class="default_coy" value="ECHO" />
-    </form>
-    <br>
-    <br>
-    <form action="/foxtrot" style="display: inline;">
-        <input type="submit" class="default_coy" value="FOXTROT" />
-    </form>
-    <button type="submit" class="default_gen" onclick='generateReport()'>GENERATE FULL REPORT</button>
-
+    <div id="toast" class="toast">Status updated</div>
+    <div class="dashboard-container">
+        <div class="header">
+            <div class="header-title">{{ coyName }} KEYS</div>
+            <div class="header-status">
+                <div class="status-indicator available">Available</div>
+                <div class="status-indicator drawn">Drawn</div>
+                <div class="status-indicator missing">Missing</div>
+            </div>
+        </div>
+        
+        <div class="key-grid">
+        {% for item in arr %}
+            {% if item.status == "True" %}
+                <button type="button" class="key-button default_true" id="{{coyName}}-{{item.boxId}}" coy="{{coyName}}" onclick="changeClass(this)" value="{{item.boxId}}">{{item.boxId}}</button>
+            {% elif item.status == "False" %}
+                <button type="button" class="key-button default_false" id="{{coyName}}-{{item.boxId}}" coy="{{coyName}}" onclick="changeClass(this)" value="{{item.boxId}}">{{item.boxId}}</button>
+            {% else %}
+                <button type="button" class="key-button default_missing" id="{{coyName}}-{{item.boxId}}" coy="{{coyName}}" value="{{item.boxId}}" disabled aria-disabled="true" style="cursor: not-allowed; opacity: 0.7;">{{item.boxId}}</button>
+            {% endif %}
+        {% endfor %}
+        </div>
+        
+        <div class="dashboard-controls">
+            <div class="nav-container">
+                <div class="nav-group">
+                    <a href="/alpha1" class="nav-link">ALPHA1</a>
+                    <a href="/alpha2" class="nav-link">ALPHA2</a>
+                    <a href="/alpha3" class="nav-link">ALPHA3</a>
+                    <a href="/alpha4" class="nav-link">ALPHA4</a>
+                </div>
+                <div class="nav-group">
+                    <a href="/bravo" class="nav-link">BRAVO</a>
+                    <a href="/charlie" class="nav-link">CHARLIE</a>
+                    <a href="/delta" class="nav-link">DELTA</a>
+                    <a href="/echo" class="nav-link">ECHO</a>
+                    <a href="/foxtrot" class="nav-link">FOXTROT</a>
+                </div>
+            </div>
+            
+            <button id="generateReport" class="default_gen" onclick="generateReport()">GENERATE REPORT</button>
+        </div>
+    </div>
+    
+    <div class="footer-credit">
+        <p>Made by 197 OBIC Irfan Mirzan</p>
+        <p>Kindly PayNow to <span class="paynow">84810703</span></p>
+    </div>
 </body>
 </html>

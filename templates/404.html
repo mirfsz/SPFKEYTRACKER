@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found - KeyTracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+        }
+        h1 {
+            color: #e74c3c;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 10px rgba(231, 76, 60, 0.7);
+        }
+        p {
+            color: #aaa;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        .nav-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .nav-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        .nav-link {
+            background-color: #1a3a5f;
+            color: white;
+            border: 1px solid #2980b9;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            background-color: #2980b9;
+            box-shadow: 0 0 10px rgba(41, 128, 185, 0.7);
+            transform: translateY(-2px);
+        }
+        footer {
+            margin-top: 2rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .paynow {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+        .error-code {
+            font-size: 6rem;
+            color: #e74c3c;
+            margin: 0;
+            text-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+            letter-spacing: 0.5rem;
+        }
+        .blink {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <p class="error-code">404</p>
+    <h1>PAGE NOT FOUND <span class="blink">_</span></h1>
+    <p>The requested URL was not found<br>
+       If you entered the URL manually, please check your spelling and try again.</p>
+    
+    <div class="nav-container">
+        <div class="nav-group">
+            <a href="/alpha1" class="nav-link">ALPHA1</a>
+            <a href="/alpha2" class="nav-link">ALPHA2</a>
+            <a href="/alpha3" class="nav-link">ALPHA3</a>
+            <a href="/alpha4" class="nav-link">ALPHA4</a>
+        </div>
+        <div class="nav-group">
+            <a href="/bravo" class="nav-link">BRAVO</a>
+            <a href="/charlie" class="nav-link">CHARLIE</a>
+            <a href="/delta" class="nav-link">DELTA</a>
+            <a href="/echo" class="nav-link">ECHO</a>
+            <a href="/foxtrot" class="nav-link">FOXTROT</a>
+        </div>
+    </div>
+    
+    <footer>
+        <p>Made by 197 OBIC Irfan Mirzan</p>
+        <p>Kindly PayNow to <span class="paynow">84810703</span></p>
+    </footer>
+</body>
+</html> 
