@@ -11,11 +11,7 @@ services:
         value: "true"
       - key: PORT
         value: 10000
-    healthCheckPath: /api/report
-    disk:
-      name: data
-      mountPath: /data
-      sizeGB: 1
+    healthCheckPath: /api/health
 
   - type: static-site
     name: keybox-tracker-frontend

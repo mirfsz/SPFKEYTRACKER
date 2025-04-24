@@ -1,6 +1,5 @@
 import datetime
-import sqlite3
-from models import get_db_connection
+from models import KEY_DB
 
 def get_line_numbers_concat(line_nums):
     """
@@ -50,10 +49,6 @@ def generateReport():
     report += f"Day: {today.strftime('%A')}\n\n"
     
     try:
-        # Connect to SQLite database
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
         # Get all companies in specified order
         companies = ['ALPHA1', 'ALPHA2', 'ALPHA3', 'ALPHA4', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOXTROT']
         
@@ -67,15 +62,15 @@ def generateReport():
             missing_keys = []
             classroom_keys_drawn = []
             
-            # Query the database for key statuses
-            cursor.execute(f"SELECT boxId, status FROM {coy}")
-            results = cursor.fetchall()
+            # Check if company data exists
+            if coy not in KEY_DB:
+                continue
+                
+            # Get key statuses from in-memory database
+            keys_data = KEY_DB[coy]
             
             # Process the results
-            for row in results:
-                boxId = row['boxId']
-                status = row['status']
-                
+            for boxId, status in keys_data.items():
                 if status == 'False':  # Red = Drawn
                     drawn_keys.append(boxId)
                     # Check if this is a classroom key (51-54)
@@ -102,85 +97,8 @@ def generateReport():
             
             report += "\n"
         
-        # Close the connection
-        conn.close()
-        
     except Exception as e:
-        print(f"Database error in report generation: {e}")
-        # Create mock data for testing
-        report += "MOCK REPORT FOR TESTING (No Database Connection)\n\n"
-        
-        # Mock data for testing
-        mock_data = {
-            'ALPHA1': {
-                'holding': 42,
-                'drawn': [2, 6, 12, 13, 23, 26, 34],
-                'missing': [1, 3, 7, 15],
-                'classroom_drawn': [51]
-            },
-            'ALPHA2': {
-                'holding': 41,
-                'drawn': [1, 4, 13, 14, 26, 29, 30, 37, 40, 46],
-                'missing': [2, 8, 11],
-                'classroom_drawn': []
-            },
-            'ALPHA3': {
-                'holding': 41,
-                'drawn': [14, 17, 18, 20, 39, 42, 48],
-                'missing': [4, 9, 22],
-                'classroom_drawn': [52, 54]
-            },
-            'ALPHA4': {
-                'holding': 42,
-                'drawn': [1, 3, 6, 8, 12, 14, 18, 29, 47],
-                'missing': [13, 19],
-                'classroom_drawn': []
-            },
-            'BRAVO': {
-                'holding': 38,
-                'drawn': [1, 4, 13, 14, 26, 29, 30, 37, 40, 46],
-                'missing': [5, 17, 23, 31],
-                'classroom_drawn': [51, 53]
-            },
-            'CHARLIE': {
-                'holding': 41,
-                'drawn': [14, 17, 18, 20, 39, 42, 48],
-                'missing': [16, 25, 33],
-                'classroom_drawn': [52]
-            },
-            'DELTA': {
-                'holding': 40,
-                'drawn': [1, 3, 6, 8, 12, 14, 18, 29, 47],
-                'missing': [21, 27, 35],
-                'classroom_drawn': [51, 54]
-            },
-            'ECHO': {
-                'holding': 43,
-                'drawn': [1, 13, 18, 36, 38, 40, 41, 47],
-                'missing': [29, 37, 42],
-                'classroom_drawn': []
-            },
-            'FOXTROT': {
-                'holding': 45,
-                'drawn': [4, 5, 14, 20, 24, 31, 39, 49],
-                'missing': [32, 44, 48],
-                'classroom_drawn': [52, 53]
-            }
-        }
-        
-        for coy, data in mock_data.items():
-            total = 54
-            report += f"{coy} – {total} keys in total ✅\n"
-            report += f"Currently holding: {data['holding']} keys\n"
-            report += f"Drawn: {get_line_numbers_concat(data['drawn'])} ({len(data['drawn'])} keys)\n"
-            report += f"Missing: {get_line_numbers_concat(data['missing'])} ({len(data['missing'])} keys)\n"
-            
-            if data['classroom_drawn']:
-                report += "Classroom keys drawn:\n"
-                for key in sorted(data['classroom_drawn']):
-                    level = key - 50  # Convert to level number
-                    report += f"• Level {level} classroom\n"
-            
-            report += "\n"
+        print(f"Error in report generation: {e}")
+        report += f"Error generating report: {str(e)}\n"
 
     return report
