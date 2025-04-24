@@ -4,7 +4,6 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt && yarn && yarn build
     startCommand: gunicorn main:app
-    staticPublishPath: ./build
     envVars:
       - key: FLASK_ENV
         value: production

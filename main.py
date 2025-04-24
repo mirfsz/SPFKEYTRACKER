@@ -4,7 +4,7 @@ from reportGen import generateReport
 from models import init_db, get_company_keys, update_key_status
 import os
 
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+app = Flask(__name__, static_folder='build', static_url_path='')
 CORS(app)  # Enable CORS for all routes
 
 # Initialize database on startup
