@@ -6,6 +6,7 @@ import Toast from './components/Toast';
 
 // Get API URL from environment variables or use default for local development
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+console.log('API URL:', API_URL); // Add logging for API URL
 
 function App() {
   const [currentCompany, setCurrentCompany] = useState('ALPHA1');
@@ -18,17 +19,26 @@ function App() {
   useEffect(() => {
     const fetchKeys = async () => {
       setLoading(true);
+      const url = `${API_URL}/api/keys/${currentCompany.toLowerCase()}`;
+      console.log('Fetching from:', url); // Log the full URL
+      
       try {
-        const response = await fetch(`${API_URL}/api/keys/${currentCompany.toLowerCase()}`);
+        const response = await fetch(url);
+        console.log('Response status:', response.status); // Log the response status
+        
         if (!response.ok) {
-          throw new Error('Failed to fetch keys');
+          const errorText = await response.text();
+          console.error('Error response:', errorText); // Log error response body
+          throw new Error(`Failed to fetch keys: ${response.status} ${response.statusText}`);
         }
+        
         const data = await response.json();
+        console.log('Data received:', data); // Log the received data
         setKeys(data);
         setError(null);
       } catch (err) {
-        setError('Error loading keys. Please try again.');
-        console.error(err);
+        console.error('Fetch error:', err); // Log full error details
+        setError(`Error loading keys: ${err.message}. Please try again.`);
       } finally {
         setLoading(false);
       }

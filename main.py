@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 # Enable CORS for all routes with proper configuration for cross-origin requests
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, origins="*")  # Allow all origins
 
 # Initialize database on startup
 init_db()
@@ -14,6 +14,7 @@ init_db()
 @app.route('/api/health')
 def health_check():
     """Health check endpoint for Render"""
+    print("Health check endpoint called")
     return jsonify({"status": "healthy"}), 200
 
 # Original route kept for backward compatibility
@@ -25,13 +26,17 @@ def serve():
 @app.route('/api/keys/<coy>')
 def get_keys(coy):
     """API endpoint to get all keys for a company"""
+    print(f"Fetching keys for company: {coy}")
     coys = ['alpha1', 'alpha2', 'alpha3', 'alpha4', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']
     if coy.lower() not in coys:
+        print(f"Invalid company: {coy}")
         return jsonify({"error": "Invalid company"}), 400
 
     try:
         keys = get_company_keys(coy.upper())
-        return jsonify(keys)
+        print(f"Found {len(keys)} keys for {coy}")
+        response = jsonify(keys)
+        return response
     except Exception as e:
         print(f"Database error: {e}")
         return jsonify({"error": str(e)}), 500
