@@ -13,6 +13,8 @@ const MISSING_KEYS = {
   'FOXTROT': [32, 39, 44, 48]
 };
 
+const LONG_PRESS_DURATION = 500; // Duration in milliseconds for long press
+
 const KeyGrid = ({ keys, onUpdateStatus }) => {
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -20,6 +22,8 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   const gridRef = useRef(null);
   const touchMoveRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const initialTouchRef = useRef(null);
 
   // Track window resize for responsive layout
   useEffect(() => {
@@ -62,7 +66,7 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
 
     // Register for touch events on the document
     if (isMobileView) {
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchmove', handleTouchMove, { passive: true });
     }
     
     return () => {
@@ -100,21 +104,53 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
   };
 
   // Start selection (mouse down or touch start)
-  const handleSelectionStart = (boxId) => {
+  const handleSelectionStart = (boxId, e) => {
     const company = getCurrentCompany();
     
     // Don't start selection on permanently missing keys
     if (MISSING_KEYS[company]?.includes(boxId)) {
       return;
     }
-    
-    console.log('Selection started with key:', boxId);
-    setIsSelecting(true);
-    setSelectStartKey(boxId);
-    setSelectedKeys([boxId]);
-    
-    // For touch events, store reference that selection is active
-    touchMoveRef.current = true;
+
+    if (isMobileView) {
+      // Store the initial touch position
+      if (e.touches) {
+        initialTouchRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          boxId
+        };
+
+        // Set up long press timer
+        longPressTimerRef.current = setTimeout(() => {
+          setIsSelecting(true);
+          setSelectStartKey(boxId);
+          setSelectedKeys([boxId]);
+          touchMoveRef.current = true;
+        }, LONG_PRESS_DURATION);
+      }
+    } else {
+      // For mouse interaction, start selection immediately
+      setIsSelecting(true);
+      setSelectStartKey(boxId);
+      setSelectedKeys([boxId]);
+    }
+  };
+
+  // Handle touch move during potential long press
+  const handleTouchMove = (e) => {
+    if (longPressTimerRef.current && initialTouchRef.current) {
+      const touch = e.touches[0];
+      const deltaX = Math.abs(touch.clientX - initialTouchRef.current.x);
+      const deltaY = Math.abs(touch.clientY - initialTouchRef.current.y);
+      
+      // If moved more than 10px, cancel long press
+      if (deltaX > 10 || deltaY > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+        initialTouchRef.current = null;
+      }
+    }
   };
 
   // Continue selection (mouse enter while selecting)
@@ -127,8 +163,6 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
     if (MISSING_KEYS[company]?.includes(boxId)) {
       return;
     }
-    
-    console.log('Selection moved to key:', boxId);
     
     // Calculate range between start key and current key
     const start = Math.min(selectStartKey, boxId);
@@ -147,8 +181,14 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
 
   // End selection (mouse up or touch end)
   const handleSelectionEnd = () => {
+    // Clear any pending long press timer
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    initialTouchRef.current = null;
+
     if (isSelecting && selectedKeys.length > 0) {
-      console.log('Selection ended with keys:', selectedKeys);
       // Prepare for bulk update but don't update yet - wait for user to click a button
       setIsSelecting(false);
       touchMoveRef.current = false;
@@ -158,8 +198,6 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
   // Update all selected keys to specified status
   const updateSelectedKeys = (status) => {
     if (selectedKeys.length === 0) return;
-    
-    console.log(`Updating ${selectedKeys.length} keys to ${status}`);
     
     // Update each selected key
     selectedKeys.forEach(boxId => {
@@ -174,6 +212,11 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
 
   // Cancel selection
   const cancelSelection = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    initialTouchRef.current = null;
     setSelectedKeys([]);
     setIsSelecting(false);
     setSelectStartKey(null);
@@ -219,6 +262,7 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
         onMouseUp={handleSelectionEnd}
         onMouseLeave={handleSelectionEnd}
         onTouchEnd={handleSelectionEnd}
+        onTouchCancel={handleSelectionEnd}
       >
         {keyIds.map(boxId => {
           const status = keys[boxId] || 'True';
@@ -233,7 +277,8 @@ const KeyGrid = ({ keys, onUpdateStatus }) => {
               onClick={() => handleKeyClick(boxId)}
               onMouseDown={() => handleSelectionStart(boxId)}
               onMouseEnter={() => handleSelectionMove(boxId)}
-              onTouchStart={() => handleSelectionStart(boxId)}
+              onTouchStart={(e) => handleSelectionStart(boxId, e)}
+              onTouchMove={handleTouchMove}
               disabled={status === 'Missing' || isPermanentlyMissing}
               className={`
                 flex items-center justify-center
