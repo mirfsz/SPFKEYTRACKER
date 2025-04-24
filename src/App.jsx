@@ -4,76 +4,123 @@ import CompanyNav from './components/CompanyNav';
 import ReportButton from './components/ReportButton';
 import Toast from './components/Toast';
 
-// Get API URL from environment variables or use default for local development
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-console.log('API URL:', API_URL); // Add logging for API URL
+// In-memory data store for keys
+const generateInitialData = () => {
+  const companies = ['ALPHA1', 'ALPHA2', 'ALPHA3', 'ALPHA4', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOXTROT'];
+  const data = {};
+  
+  // Create initial keys (all available)
+  companies.forEach(company => {
+    data[company] = {};
+    for (let i = 1; i <= 54; i++) {
+      data[company][i] = 'True';
+    }
+  });
+  
+  // Set permanently missing keys
+  const missingKeys = {
+    'ALPHA1': [1, 3, 7, 12, 15],
+    'ALPHA2': [2, 8, 11],
+    'ALPHA3': [4, 9, 14, 22],
+    'ALPHA4': [6, 13, 19],
+    'BRAVO': [5, 17, 23, 31],
+    'CHARLIE': [16, 25, 33],
+    'DELTA': [21, 27, 35],
+    'ECHO': [29, 37, 42],
+    'FOXTROT': [32, 39, 44, 48]
+  };
+  
+  // Apply missing keys
+  Object.entries(missingKeys).forEach(([company, keys]) => {
+    keys.forEach(key => {
+      data[company][key] = 'Missing';
+    });
+  });
+  
+  return data;
+};
+
+// Load initial data or from localStorage if available
+const loadInitialData = () => {
+  try {
+    const savedData = localStorage.getItem('keyData');
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+  } catch (e) {
+    console.error('Error loading data from localStorage:', e);
+  }
+  return generateInitialData();
+};
 
 function App() {
   const [currentCompany, setCurrentCompany] = useState('ALPHA1');
+  const [allKeys, setAllKeys] = useState(loadInitialData);
   const [keys, setKeys] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  // Fetch keys for the current company
+  // Set current company's keys when company changes
   useEffect(() => {
-    const fetchKeys = async () => {
-      setLoading(true);
-      const url = `${API_URL}/api/keys/${currentCompany.toLowerCase()}`;
-      console.log('Fetching from:', url); // Log the full URL
-      
-      try {
-        const response = await fetch(url);
-        console.log('Response status:', response.status); // Log the response status
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Error response:', errorText); // Log error response body
-          throw new Error(`Failed to fetch keys: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('Data received:', data); // Log the received data
-        setKeys(data);
-        setError(null);
-      } catch (err) {
-        console.error('Fetch error:', err); // Log full error details
-        setError(`Error loading keys: ${err.message}. Please try again.`);
-      } finally {
-        setLoading(false);
-      }
-    };
+    setKeys(allKeys[currentCompany] || {});
+  }, [currentCompany, allKeys]);
 
-    fetchKeys();
-  }, [currentCompany]);
+  // Save to localStorage when data changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('keyData', JSON.stringify(allKeys));
+    } catch (e) {
+      console.error('Error saving to localStorage:', e);
+    }
+  }, [allKeys]);
 
   // Update key status
   const updateKeyStatus = async (boxId, status) => {
     try {
-      const response = await fetch(`${API_URL}/api/keys/${currentCompany.toLowerCase()}/${boxId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
+      // Check if key is permanently missing
+      const missingKeys = {
+        'ALPHA1': [1, 3, 7, 12, 15],
+        'ALPHA2': [2, 8, 11],
+        'ALPHA3': [4, 9, 14, 22],
+        'ALPHA4': [6, 13, 19],
+        'BRAVO': [5, 17, 23, 31],
+        'CHARLIE': [16, 25, 33],
+        'DELTA': [21, 27, 35],
+        'ECHO': [29, 37, 42],
+        'FOXTROT': [32, 39, 44, 48]
+      };
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update key status');
+      const isPermanentlyMissing = missingKeys[currentCompany]?.includes(Number(boxId));
+      if (isPermanentlyMissing) {
+        setToast({
+          show: true,
+          message: "Cannot update permanently missing key",
+          type: 'error',
+        });
+        return false;
       }
       
       // Update local state
-      setKeys(prevKeys => ({
-        ...prevKeys,
-        [boxId]: status,
+      setAllKeys(prev => ({
+        ...prev,
+        [currentCompany]: {
+          ...prev[currentCompany],
+          [boxId]: status
+        }
       }));
+      
+      setToast({
+        show: true,
+        message: `Key ${boxId} ${status === 'True' ? 'returned' : 'drawn out'}`,
+        type: 'success',
+      });
       
       return true;
     } catch (err) {
       setToast({
         show: true,
-        message: err.message,
+        message: err.message || "Error updating key status",
         type: 'error',
       });
       console.error(err);
@@ -81,7 +128,7 @@ function App() {
     }
   };
 
-  // Generate and copy report
+  // Generate report locally
   const generateReport = async () => {
     try {
       setToast({
@@ -90,16 +137,57 @@ function App() {
         type: 'info',
       });
       
-      const response = await fetch(`${API_URL}/api/report`);
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
+      const today = new Date();
+      let report = "Key Status Report\n";
+      report += `Date: ${today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}\n`;
+      report += `Day: ${today.toLocaleDateString('en-GB', { weekday: 'long' })}\n\n`;
+      
+      const companies = ['ALPHA1', 'ALPHA2', 'ALPHA3', 'ALPHA4', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOXTROT'];
+      
+      for (const coy of companies) {
+        const totalKeys = 54;
+        const drawnKeys = [];
+        const missingKeys = [];
+        const classroomKeysDrawn = [];
+        
+        // Process keys
+        Object.entries(allKeys[coy] || {}).forEach(([boxId, status]) => {
+          const boxIdNum = Number(boxId);
+          if (status === 'False') { // Drawn
+            drawnKeys.push(boxIdNum);
+            if (boxIdNum >= 51 && boxIdNum <= 54) {
+              const level = boxIdNum - 50;
+              classroomKeysDrawn.push(`• Level ${level} classroom`);
+            }
+          } else if (status === 'Missing') {
+            missingKeys.push(boxIdNum);
+          }
+        });
+        
+        // Sort for consistent display
+        drawnKeys.sort((a, b) => a - b);
+        missingKeys.sort((a, b) => a - b);
+        
+        const holdingKeys = totalKeys - drawnKeys.length - missingKeys.length;
+        
+        // Add to report
+        report += `${coy} – ${totalKeys} keys in total ✅\n`;
+        report += `Currently holding: ${holdingKeys} keys\n`;
+        report += `Drawn: ${formatLineNumbers(drawnKeys)} (${drawnKeys.length} keys)\n`;
+        report += `Missing: ${formatLineNumbers(missingKeys)} (${missingKeys.length} keys)\n`;
+        
+        if (classroomKeysDrawn.length > 0) {
+          report += "Classroom keys drawn:\n";
+          classroomKeysDrawn.sort().forEach(key => {
+            report += `${key}\n`;
+          });
+        }
+        
+        report += "\n";
       }
       
-      const data = await response.json();
-      const reportText = data.report;
-      
       // Copy to clipboard
-      await navigator.clipboard.writeText(reportText).then(
+      await navigator.clipboard.writeText(report).then(
         () => {
           setToast({
             show: true,
@@ -114,8 +202,8 @@ function App() {
             message: 'Please copy the report manually',
             type: 'warning',
           });
-          // Show modal with report text (would implement in a real app)
-          alert(reportText);
+          // Show modal with report text
+          alert(report);
         }
       );
     } catch (err) {
@@ -126,6 +214,28 @@ function App() {
       });
       console.error(err);
     }
+  };
+  
+  // Helper function to format line numbers like "1-3, 5, 7-9"
+  const formatLineNumbers = (nums) => {
+    if (!nums || nums.length === 0) return "None";
+    
+    nums = [...nums].sort((a, b) => a - b);
+    const ranges = [];
+    let rangeStart = nums[0];
+    let rangeEnd = nums[0];
+    
+    for (let i = 1; i < nums.length; i++) {
+      if (nums[i] === rangeEnd + 1) {
+        rangeEnd = nums[i];
+      } else {
+        ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`);
+        rangeStart = rangeEnd = nums[i];
+      }
+    }
+    
+    ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`);
+    return ranges.join(', ');
   };
 
   return (
