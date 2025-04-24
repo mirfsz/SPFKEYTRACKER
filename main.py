@@ -1,23 +1,26 @@
-from flask import Flask, redirect, url_for, request, render_template, jsonify
+from flask import Flask, redirect, url_for, request, render_template, jsonify, send_from_directory
 from flask_cors import CORS
 from reportGen import generateReport
 from models import init_db, get_company_keys, update_key_status
 import os
 
-app = Flask(__name__, static_folder='build', static_url_path='')
-CORS(app)  # Enable CORS for all routes
+app = Flask(__name__, static_folder='static', static_url_path='/static')
+# Enable CORS for all routes with proper configuration for cross-origin requests
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Initialize database on startup
 init_db()
 
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint for Render"""
+    return jsonify({"status": "healthy"}), 200
+
+# Original route kept for backward compatibility
 @app.route('/')
 def serve():
-    """Serve the React frontend if it exists, otherwise redirect to ALPHA1"""
-    if os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return app.send_static_file('index.html')
-    else:
-        # If React build doesn't exist, fall back to legacy Flask templates
-        return redirect(url_for('index', coy='alpha1'))
+    """Redirect to legacy UI as we're now using a separate static site for React"""
+    return redirect(url_for('index', coy='alpha1'))
 
 @app.route('/api/keys/<coy>')
 def get_keys(coy):
@@ -160,18 +163,18 @@ def not_found(e):
     if request.path.startswith('/api/'):
         # API routes should return JSON error
         return jsonify({"error": "Not found"}), 404
-    elif os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        # Try to handle with React
-        return app.send_static_file('index.html')
     else:
-        # Fall back to Flask template
-        return render_template('404.html'), 404
+        # Try to handle with React
+        try:
+            return send_from_directory(app.static_folder, 'index.html')
+        except:
+            # Fall back to Flask template
+            return render_template('404.html'), 404
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8000))
-    print("\n✅ KeyTracker started successfully!")
+    print("\n✅ KeyTracker API started successfully!")
     print("✅ Made by 197 OBIC Irfan Mirzan - PayNow: 84810703")
-    print(f"✅ Access the application at: http://localhost:{port}\n")
-    print(f"✅ If you have the React frontend built, visit: http://localhost:{port}\n")
+    print(f"✅ Access the API at: http://localhost:{port}/api\n")
     print(f"✅ For legacy UI, visit: http://localhost:{port}/alpha1\n")
     app.run(host='0.0.0.0', port=port, debug=os.environ.get("FLASK_ENV") == "development")

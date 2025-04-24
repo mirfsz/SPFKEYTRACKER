@@ -1,8 +1,8 @@
 services:
   - type: web
-    name: keybox-tracker
+    name: keybox-tracker-api
     env: python
-    buildCommand: pip install -r requirements.txt && yarn && yarn build
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn main:app
     envVars:
       - key: FLASK_ENV
@@ -11,8 +11,19 @@ services:
         value: "true"
       - key: PORT
         value: 10000
-    healthCheckPath: /
+    healthCheckPath: /api/report
     disk:
       name: data
       mountPath: /data
       sizeGB: 1
+
+  - type: static-site
+    name: keybox-tracker-frontend
+    buildCommand: npm install && npm run build
+    publishDir: build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          name: keybox-tracker-api
+          type: web
+          property: url
