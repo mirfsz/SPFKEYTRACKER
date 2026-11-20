@@ -177,7 +177,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div><p className="product-name">Key board</p><p className="product-meta">205 → 206 handover</p></div>
+        <div><p className="product-name">Key board</p></div>
         <button className="icon-button" onClick={() => setShowMenu(true)} aria-label="Open settings"><span aria-hidden="true">•••</span></button>
       </header>
 
