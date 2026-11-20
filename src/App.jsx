@@ -1,299 +1,256 @@
-import React, { useState, useEffect } from 'react';
-import KeyGrid from './components/KeyGrid';
+import React, { useEffect, useMemo, useState } from 'react';
+import SupportUpkeep from './components/SupportUpkeep';
+import { generateReport } from './data/report';
 import CompanyNav from './components/CompanyNav';
-import ReportButton from './components/ReportButton';
+import KeyGrid from './components/KeyGrid';
 import Toast from './components/Toast';
+import { KEY_REASONS, buildInitialData, loadTrackerData, saveTrackerData, isValidTrackerData } from './data/keyData';
 
-// In-memory data store for keys
-const generateInitialData = () => {
-  const companies = ['ALPHA1', 'ALPHA2', 'ALPHA3', 'ALPHA4', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOXTROT'];
-  const data = {};
-  
-  // Create initial keys (all available)
-  companies.forEach(company => {
-    data[company] = {};
-    for (let i = 1; i <= 54; i++) {
-      data[company][i] = 'True';
-    }
-  });
-  
-  // Set permanently missing keys
-  const missingKeys = {
-    'ALPHA1': [1, 3, 7, 12, 15],
-    'ALPHA2': [2, 8, 11],
-    'ALPHA3': [4, 9, 14, 22],
-    'ALPHA4': [6, 13, 19],
-    'BRAVO': [5, 17, 23, 31],
-    'CHARLIE': [16, 25, 33],
-    'DELTA': [21, 27, 35],
-    'ECHO': [29, 37, 42],
-    'FOXTROT': [32, 39, 44, 48]
-  };
-  
-  // Apply missing keys
-  Object.entries(missingKeys).forEach(([company, keys]) => {
-    keys.forEach(key => {
-      data[company][key] = 'Missing';
-    });
-  });
-  
-  return data;
-};
-
-// Load initial data or from localStorage if available
-const loadInitialData = () => {
-  try {
-    const savedData = localStorage.getItem('keyData');
-    if (savedData) {
-      return JSON.parse(savedData);
-    }
-  } catch (e) {
-    console.error('Error loading data from localStorage:', e);
-  }
-  return generateInitialData();
-};
 
 function App() {
-  const [currentCompany, setCurrentCompany] = useState('ALPHA1');
-  const [allKeys, setAllKeys] = useState(loadInitialData);
-  const [keys, setKeys] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  // Set current company's keys when company changes
+  const [data, setData] = useState(loadTrackerData);
+  const [company, setCompany] = useState('CHARLIE');
+  const [mode, setMode] = useState('track');
+  const [filter, setFilter] = useState('all');
+  const [selected, setSelected] = useState([]);
+  const [selecting, setSelecting] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [deadline, setDeadline] = useState(null);
+  const [expired, setExpired] = useState(false);
   useEffect(() => {
-    setKeys(allKeys[currentCompany] || {});
-  }, [currentCompany, allKeys]);
+    const controller = new AbortController();
+    const refresh = async () => {
+      try {
+        let config;
+        try {
+          const response = await fetch('/api/support?action=status', { cache: 'no-store', signal: controller.signal });
+          if (!response.ok) throw new Error('Service unavailable');
+          config = await response.json();
+        } catch {
+          const response = await fetch(`${process.env.PUBLIC_URL || ''}/support.json`, { cache: 'no-store', signal: controller.signal });
+          if (!response.ok) return;
+          config = await response.json();
+        }
+        if (Number.isFinite(Date.parse(config.deadline))) {
+          setDeadline(config.deadline);
+          setExpired(Date.now() >= Date.parse(config.deadline));
+        }
+      } catch (error) { /* Keep the last known deadline while offline. */ }
+    };
+    refresh();
+    const interval = setInterval(refresh, 60000);
+    return () => { controller.abort(); clearInterval(interval); };
+  }, []);
+  const keys = data.companies[company];
 
-  // Save to localStorage when data changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('keyData', JSON.stringify(allKeys));
-    } catch (e) {
-      console.error('Error saving to localStorage:', e);
+  const counts = useMemo(() => {
+    const records = Object.values(keys);
+    return {
+      in: records.filter((key) => key.condition === 'usable' && key.location === 'in').length,
+      out: records.filter((key) => key.condition === 'usable' && key.location === 'out').length,
+      unusable: records.filter((key) => key.condition === 'unusable').length,
+      review: records.filter((key) => key.needsReview).length,
+    };
+  }, [keys]);
+
+  const commit = (nextData, message) => {
+    const stamped = { ...nextData, updatedAt: new Date().toISOString() };
+    setData(stamped);
+    saveTrackerData(stamped);
+    if (message) setToast(message);
+  };
+
+  const toggleLocation = (keyNumber) => {
+    if (expired) return;
+    const key = keys[keyNumber];
+    if (key.condition !== 'usable') {
+      setToast(`Key ${keyNumber} is unusable. Open Manage keys to change it.`);
+      return;
     }
-  }, [allKeys]);
+    const location = key.location === 'out' ? 'in' : 'out';
+    commit({
+      ...data,
+      companies: {
+        ...data.companies,
+        [company]: { ...keys, [keyNumber]: { ...key, location, updatedAt: new Date().toISOString() } },
+      },
+    }, `Key ${keyNumber} marked ${location === 'in' ? 'in fridge' : 'drawn out'}.`);
+  };
 
-  // Update key status
-  const updateKeyStatus = async (boxId, status) => {
-    try {
-      // Check if key is permanently missing
-      const missingKeys = {
-        'ALPHA1': [1, 3, 7, 12, 15],
-        'ALPHA2': [2, 8, 11],
-        'ALPHA3': [4, 9, 14, 22],
-        'ALPHA4': [6, 13, 19],
-        'BRAVO': [5, 17, 23, 31],
-        'CHARLIE': [16, 25, 33],
-        'DELTA': [21, 27, 35],
-        'ECHO': [29, 37, 42],
-        'FOXTROT': [32, 39, 44, 48]
+  const applyCondition = (condition, reason = null) => {
+    if (expired) return;
+    if (!selected.length) return;
+    const nextKeys = { ...keys };
+    selected.forEach((keyNumber) => {
+      nextKeys[keyNumber] = {
+        ...nextKeys[keyNumber], condition, reason: condition === 'unusable' ? reason : null,
+        needsReview: false, updatedAt: new Date().toISOString(),
       };
-      
-      const isPermanentlyMissing = missingKeys[currentCompany]?.includes(Number(boxId));
-      if (isPermanentlyMissing) {
-        setToast({
-          show: true,
-          message: "Cannot update permanently missing key",
-          type: 'error',
-        });
-        return false;
-      }
-      
-      // Update local state
-      setAllKeys(prev => ({
-        ...prev,
-        [currentCompany]: {
-          ...prev[currentCompany],
-          [boxId]: status
-        }
-      }));
-      
-      setToast({
-        show: true,
-        message: `Key ${boxId} ${status === 'True' ? 'returned' : 'drawn out'}`,
-        type: 'success',
-      });
-      
-      return true;
-    } catch (err) {
-      setToast({
-        show: true,
-        message: err.message || "Error updating key status",
-        type: 'error',
-      });
-      console.error(err);
-      return false;
+    });
+    commit({ ...data, companies: { ...data.companies, [company]: nextKeys } }, `${selected.length} ${selected.length === 1 ? 'key' : 'keys'} updated.`);
+    setSelected([]);
+  };
+
+  const updateSelection = (keyNumber) => {
+    if (mode === 'track' && keys[keyNumber].condition !== 'usable') {
+      setToast('Use Manage keys to change unusable keys.');
+      return;
+    }
+    setSelected((current) => current.includes(keyNumber)
+      ? current.filter((number) => number !== keyNumber)
+      : [...current, keyNumber]);
+  };
+
+  const switchCompany = (nextCompany) => {
+    setCompany(nextCompany);
+    setSelected([]);
+    setSelecting(false);
+    setFilter('all');
+  };
+
+  const leaveManageMode = () => {
+    setMode('track');
+    setSelected([]);
+    setSelecting(false);
+  };
+
+  const applyLocation = (location) => {
+    if (expired) return;
+    const nextKeys = { ...keys };
+    selected.forEach(number => {
+      if (nextKeys[number].condition === 'usable') nextKeys[number] = { ...nextKeys[number], location, updatedAt: new Date().toISOString() };
+    });
+    commit({ ...data, companies: { ...data.companies, [company]: nextKeys } }, `Selected keys marked ${location === 'in' ? 'in fridge' : 'drawn out'}.`);
+    setSelected([]);
+    setSelecting(false);
+  };
+
+  const report = showReport ? generateReport(data) : '';
+
+  const copyReport = async () => {
+    if (expired) return;
+    try {
+      await navigator.clipboard.writeText(report);
+      setToast('Report copied.');
+      setShowReport(false);
+    } catch (error) {
+      setToast('Could not copy automatically. Select the report text and copy it.');
     }
   };
 
-  // Generate report locally
-  const generateReport = async () => {
-    try {
-      setToast({
-        show: true,
-        message: 'Generating report...',
-        type: 'info',
-      });
-      
-      const today = new Date();
-      let report = "Key Status Report\n";
-      report += `Date: ${today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}\n`;
-      report += `Day: ${today.toLocaleDateString('en-GB', { weekday: 'long' })}\n\n`;
-      
-      const companies = ['ALPHA1', 'ALPHA2', 'ALPHA3', 'ALPHA4', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOXTROT'];
-      
-      for (const coy of companies) {
-        const totalKeys = 54;
-        const drawnKeys = [];
-        const missingKeys = [];
-        const classroomKeysDrawn = [];
-        
-        // Process keys
-        Object.entries(allKeys[coy] || {}).forEach(([boxId, status]) => {
-          const boxIdNum = Number(boxId);
-          if (status === 'False') { // Drawn
-            drawnKeys.push(boxIdNum);
-            if (boxIdNum >= 51 && boxIdNum <= 54) {
-              const level = boxIdNum - 50;
-              classroomKeysDrawn.push(`• Level ${level} classroom`);
-            }
-          } else if (status === 'Missing') {
-            missingKeys.push(boxIdNum);
-          }
-        });
-        
-        // Sort for consistent display
-        drawnKeys.sort((a, b) => a - b);
-        missingKeys.sort((a, b) => a - b);
-        
-        const holdingKeys = totalKeys - drawnKeys.length - missingKeys.length;
-        
-        // Add to report
-        report += `${coy} – ${totalKeys} keys in total ✅\n`;
-        report += `Currently holding: ${holdingKeys} keys\n`;
-        report += `Drawn: ${formatLineNumbers(drawnKeys)} (${drawnKeys.length} keys)\n`;
-        report += `Missing: ${formatLineNumbers(missingKeys)} (${missingKeys.length} keys)\n`;
-        
-        if (classroomKeysDrawn.length > 0) {
-          report += "Classroom keys drawn:\n";
-          classroomKeysDrawn.sort().forEach(key => {
-            report += `${key}\n`;
-          });
-        }
-        
-        report += "\n";
-      }
-      
-      // Copy to clipboard
-      await navigator.clipboard.writeText(report).then(
-        () => {
-          setToast({
-            show: true,
-            message: 'Report copied to clipboard!',
-            type: 'success',
-          });
-        },
-        () => {
-          // Fallback if clipboard API fails
-          setToast({
-            show: true,
-            message: 'Please copy the report manually',
-            type: 'warning',
-          });
-          // Show modal with report text
-          alert(report);
-        }
-      );
-    } catch (err) {
-      setToast({
-        show: true,
-        message: 'Error generating report',
-        type: 'error',
-      });
-      console.error(err);
-    }
+  const exportBackup = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `key-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setShowMenu(false);
+    setToast('Backup downloaded.');
   };
-  
-  // Helper function to format line numbers like "1-3, 5, 7-9"
-  const formatLineNumbers = (nums) => {
-    if (!nums || nums.length === 0) return "None";
-    
-    nums = [...nums].sort((a, b) => a - b);
-    const ranges = [];
-    let rangeStart = nums[0];
-    let rangeEnd = nums[0];
-    
-    for (let i = 1; i < nums.length; i++) {
-      if (nums[i] === rangeEnd + 1) {
-        rangeEnd = nums[i];
-      } else {
-        ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`);
-        rangeStart = rangeEnd = nums[i];
-      }
+
+  const resetDemo = () => {
+    if (!window.confirm('Reset all local records to the supplied Charlie and Delta lists?')) return;
+    commit(buildInitialData(), 'Local records reset.');
+    setShowMenu(false);
+  };
+
+  const importBackup = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = JSON.parse(await file.text());
+      const valid = isValidTrackerData(imported);
+      if (!valid) throw new Error('Invalid backup');
+      commit(imported, 'Backup restored on this device.');
+      setShowMenu(false);
+    } catch (error) {
+      setToast('That file is not a valid Key board backup.');
+    } finally {
+      event.target.value = '';
     }
-    
-    ranges.push(rangeStart === rangeEnd ? `${rangeStart}` : `${rangeStart}-${rangeEnd}`);
-    return ranges.join(', ');
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="flex flex-col min-h-screen">
-        <div className="flex-grow">
-          <header className="py-4 border-b border-gray-800">
-            <h2 className="text-xl font-bold text-green-400 pl-4">{currentCompany} KEYS</h2>
-            <div className="flex justify-end space-x-4 pr-4 pt-1">
-              <div className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span>
-                <span className="text-sm">Available</span>
-              </div>
-              <div className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-red-500 mr-2"></span>
-                <span className="text-sm">Drawn</span>
-              </div>
-              <div className="flex items-center">
-                <span className="w-3 h-3 rounded-full bg-gray-500 mr-2"></span>
-                <span className="text-sm">Missing</span>
-              </div>
-            </div>
-          </header>
+    <div className="app-shell">
+      <header className="topbar">
+        <div><p className="product-name">Key board</p><p className="product-meta">205 → 206 handover</p></div>
+        <button className="icon-button" onClick={() => setShowMenu(true)} aria-label="Open settings"><span aria-hidden="true">•••</span></button>
+      </header>
 
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p>Loading keys...</p>
-            </div>
-          ) : error ? (
-            <div className="p-8 text-center text-red-500">{error}</div>
-          ) : (
-            <KeyGrid keys={keys} onUpdateStatus={updateKeyStatus} />
-          )}
-
-          <div className="border-t border-gray-800">
-            <CompanyNav currentCompany={currentCompany} onSelectCompany={setCurrentCompany} />
+      <main>
+        <section className="company-strip" aria-label="Company selection"><CompanyNav currentCompany={company} onSelectCompany={switchCompany} /></section>
+        <SupportUpkeep deadline={deadline} onExpand={() => setShowMenu(true)} onExpired={setExpired} />
+        <section className="board-heading">
+          <div>
+            <p className="company-kicker">{company} company</p>
+            <h1>{mode === 'manage' ? 'Manage usable keys' : 'Where are the keys?'}</h1>
+            <p className="board-help">{mode === 'manage' ? 'Select keys, then set whether they can be used.' : 'Tap a usable key when it is drawn or returned.'}</p>
           </div>
-          
-          <div className="p-4 border-t border-gray-800">
-            <ReportButton onGenerateReport={generateReport} />
+          <button className="mode-button" disabled={expired} onClick={() => mode === 'manage' ? leaveManageMode() : setMode('manage')}>{mode === 'manage' ? 'Done' : 'Manage keys'}</button>
+        </section>
+
+        <section className="summary-row" aria-label="Key summary">
+          <button className={filter === 'in' ? 'summary active' : 'summary'} onClick={() => setFilter(filter === 'in' ? 'all' : 'in')}><strong>{counts.in}</strong><span>In fridge</span></button>
+          <button className={filter === 'out' ? 'summary active' : 'summary'} onClick={() => setFilter(filter === 'out' ? 'all' : 'out')}><strong>{counts.out}</strong><span>Drawn</span></button>
+          <button className={filter === 'unusable' ? 'summary active' : 'summary'} onClick={() => setFilter(filter === 'unusable' ? 'all' : 'unusable')}><strong>{counts.unusable}</strong><span>Unusable</span></button>
+          {counts.review > 0 && <button className={filter === 'review' ? 'summary attention active' : 'summary attention'} onClick={() => setFilter(filter === 'review' ? 'all' : 'review')}><strong>{counts.review}</strong><span>Review</span></button>}
+        </section>
+
+        <div inert={expired ? '' : undefined}><KeyGrid keys={keys} mode={mode} filter={filter} selected={selected} onToggle={toggleLocation} onSelect={updateSelection} selecting={selecting} onSelectRange={(numbers) => { setSelected(numbers); setSelecting(true); }} /></div>
+        <p className="updated-time">Saved on this device · Updated {new Date(data.updatedAt).toLocaleString('en-SG')}</p>
+      </main>
+
+      {expired ? <nav className="bottom-bar"><button className="primary-action" onClick={() => setShowMenu(true)}>Support upkeep · View backup</button></nav> : mode === 'track' && !selecting ? (
+        <nav className="bottom-bar" aria-label="Key actions"><button className="select-action" onClick={() => setSelecting(true)}>Select keys</button><button className="primary-action" onClick={() => setShowReport(true)}>Preview report</button></nav>
+      ) : (
+        <div className="manage-bar">
+          <div className="selection-count"><strong>{selected.length}</strong><span>selected</span></div>
+          <div className="manage-actions">
+            {mode === 'track' ? <>
+              <button disabled={!selected.length} onClick={() => applyLocation('in')}>Return</button>
+              <button disabled={!selected.length} onClick={() => applyLocation('out')}>Draw out</button>
+              <button onClick={() => { setSelected([]); setSelecting(false); }}>Cancel</button>
+            </> : <>
+            <button onClick={() => applyCondition('usable')} disabled={!selected.length}>Set usable</button>
+            <details>
+              <summary aria-disabled={!selected.length}>Set unusable</summary>
+              <div className="reason-menu">{KEY_REASONS.map((reason) => <button key={reason.value} onClick={() => applyCondition('unusable', reason.value)} disabled={!selected.length}>{reason.label}</button>)}</div>
+            </details>
+            </>}
           </div>
         </div>
+      )}
 
-        <footer className="text-center text-gray-500 text-xs py-8">
-          <p className="mb-1">Made by 197 OBIC Irfan Mirzan</p>
-          <p>Kindly PayNow to <span className="text-green-400">84810703</span></p>
-        </footer>
-      </div>
-      
-      <Toast 
-        show={toast.show} 
-        message={toast.message} 
-        type={toast.type} 
-        onClose={() => setToast({...toast, show: false})}
-      />
+      {showReport && !expired && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowReport(false)}>
+          <section className="sheet" role="dialog" aria-modal="true" aria-labelledby="report-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="sheet-handle" /><div className="sheet-header"><div><p className="company-kicker">All 9 companies</p><h2 id="report-title">Key report</h2></div><button className="icon-button" onClick={() => setShowReport(false)} aria-label="Close report">×</button></div>
+            <textarea className="report-text" value={report} readOnly aria-label="Generated key report" />
+            <button className="primary-action" onClick={copyReport}>Copy report</button>
+          </section>
+        </div>
+      )}
+
+      {showMenu && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowMenu(false)}>
+          <section className="sheet compact" role="dialog" aria-modal="true" aria-labelledby="settings-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="sheet-handle" /><div className="sheet-header"><h2 id="settings-title">This device</h2><button className="icon-button" onClick={() => setShowMenu(false)} aria-label="Close settings">×</button></div>
+            <p className="settings-note">This preview saves locally. Download a backup before handing the role to another phone.</p>
+            <SupportUpkeep deadline={deadline} expanded />
+            <button className="menu-row" onClick={exportBackup}><span>Download backup</span><span>JSON</span></button>
+            <label className="menu-row file-row"><span>Restore backup</span><span>Choose file</span><input type="file" accept="application/json,.json" onChange={importBackup} /></label>
+            <button className="menu-row danger" onClick={resetDemo}><span>Reset local records</span><span>Start again</span></button>
+          </section>
+        </div>
+      )}
+
+      <Toast show={Boolean(toast)} message={toast || ''} type="success" onClose={() => setToast(null)} />
     </div>
   );
 }
 
-export default App; 
+export default App;
